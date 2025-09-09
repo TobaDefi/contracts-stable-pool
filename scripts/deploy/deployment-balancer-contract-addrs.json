@@ -103,8 +103,8 @@
                 "chainId": 7001
             },
             "StablePool": {
-                "address": "0xCe83BFd5171237aF064A4C6203Ff3902D44fd4BD",
-                "deployedBlock": 12047348,
+                "address": "0xA017203F31E817911D63820Ea81b1061AcE42FD5",
+                "deployedBlock": 12321770,
                 "chainId": 7001
             }
         }

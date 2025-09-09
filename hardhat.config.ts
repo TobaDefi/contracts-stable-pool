@@ -225,7 +225,14 @@ const config: HardhatUserConfig = {
             chainId: 80002,
             url: "https://rpc-amoy.polygon.technology",
             accounts: [...MAINNET_KEYS]
-        }
+        },
+        kaia_kairos: {
+            chainId: 1001,
+            url: "https://rpc.ankr.com/kaia_testnet",
+            // url: "https://kaia-kairos.blockpi.network/v1/rpc/public",
+            accounts: [...MAINNET_KEYS]
+        },
+
     },
     contractSizer: {
         except: ["mocks/", "from-dependencies/"]
@@ -265,11 +272,14 @@ const config: HardhatUserConfig = {
             sepolia: process.env.ETHERSCAN_API_KEY || "",
             polygon: process.env.POLYGON_API_KEY || "",
             arbitrumOne: process.env.ARBITRUM_API_KEY || "",
+            arb_testnet: process.env.ARBITRUM_API_KEY || "",
             base: process.env.BASE_API_KEY || "",
             base_sepolia: process.env.BASE_API_KEY || "",
             optimisticEthereum: process.env.OPTIMISM_API_KEY || "",
             zeta_mainnet: process.env.ZETA_API_KEY || "",
-            zeta_testnet: "empty"
+            zeta_testnet: "empty",
+            kaia_kairos: "unnecessary",
+            avalanche_testnet: "unnecessary",
         },
         customChains: [
             {
@@ -318,6 +328,30 @@ const config: HardhatUserConfig = {
                 urls: {
                     apiURL: "https://api-optimistic.etherscan.io/api",
                     browserURL: "https://optimistic.etherscan.io"
+                }
+            },
+            {
+                network: "kaia_kairos",
+                chainId: 1001,
+                urls: {
+                    apiURL: "https://kairos-api.kaiascan.io/hardhat-verify",
+                    browserURL: "https://kairos.kaiascan.io",
+                }
+            },
+            {
+                network: "avalanche_testnet",
+                chainId: 43113,
+                urls: {
+                    apiURL: "https://api.routescan.io/v2/network/testnet/evm/43113/etherscan",
+                    browserURL: "https://avalanche.testnet.localhost:8080"
+                }
+            },
+            {
+                network: "arb_testnet",
+                chainId: 421614,
+                urls: {
+                    apiURL: "https://api-sepolia.arbiscan.io/v2/api",
+                    browserURL: "https://sepolia.arbiscan.io"
                 }
             }
         ]
