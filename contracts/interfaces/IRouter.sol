@@ -10,6 +10,52 @@ import {AddLiquidityKind, RemoveLiquidityKind, SwapKind, TokenConfig} from "../c
 /// @notice User-friendly interface to basic Vault operations: swap, add/remove liquidity, and associated queries.
 interface IRouter {
     /***************************************************************************
+                                Cross-Chain Structures
+    ***************************************************************************/
+
+    /**
+     * @notice Data structure for cross-chain operations.
+     * @param pool Address of the liquidity pool
+     * @param minBptAmountOut Minimum amount of pool tokens to be received
+     */
+    struct Message {
+        address pool;
+        uint256 minBptAmountOut;
+    }
+
+    /***************************************************************************
+                                      Events  
+    ***************************************************************************/
+
+    /**
+     * @notice Emitted when cross-chain liquidity is added to a pool.
+     * @param sender The sender of the cross-chain transaction
+     * @param pool Address of the liquidity pool
+     * @param token Token used to add liquidity
+     * @param amount Amount of tokens added
+     */
+    event CrossChainLiquidityAdded(
+        address indexed sender,
+        address indexed pool,
+        address indexed token,
+        uint256 amount
+    );
+
+    /**
+     * @notice Emitted when tokens are withdrawn to external network.
+     * @param sender The sender requesting the withdrawal
+     * @param targetToken Token being withdrawn
+     * @param amount Amount being withdrawn
+     * @param recipient Recipient address on the target chain
+     */
+    event TokensWithdrawn(
+        address indexed sender,
+        address indexed targetToken,
+        uint256 amount,
+        bytes recipient
+    );
+
+    /***************************************************************************
                                 Pool Initialization
     ***************************************************************************/
 

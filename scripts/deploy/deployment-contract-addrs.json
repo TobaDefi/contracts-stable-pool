@@ -61,6 +61,11 @@
                 "address": "0x5E6A4483E81aC09181813Bc2A1645f3951BDdF0B",
                 "deployedBlock": 11940274,
                 "chainId": 7001
+            },
+            "UniversalStableSwap": {
+                "address": "0x67E662F41e898b3550078aFfB93343477e16F39C",
+                "deployedBlock": 12347762,
+                "chainId": 7001
             }
         }
     },
@@ -86,6 +91,41 @@
                 "address": "0x30e7d25774507630733d1E277E7B664b1Dee757e",
                 "deployedBlock": 28739724,
                 "chainId": 84532
+            }
+        }
+    },
+    "kaia_kairos": {
+        "old": {},
+        "new": {
+            "KBKRW": {
+                "address": "0x2254a33Ee9F600ed6574FAA9Ad8ED1Dc4a44820e",
+                "deployedBlock": 194228483,
+                "chainId": 1001
+            },
+            "TSKRW": {
+                "address": "0x90fDDe887468D282090D12208d6e171e1632008c",
+                "deployedBlock": 194229061,
+                "chainId": 1001
+            }
+        }
+    },
+    "avalanche_testnet": {
+        "old": {},
+        "new": {
+            "HanaKRW": {
+                "address": "0x6B513B40eBc0B4D7B197730476ed3324346F2822",
+                "deployedBlock": 45088262,
+                "chainId": 43113
+            }
+        }
+    },
+    "arb_testnet": {
+        "old": {},
+        "new": {
+            "UPKRW": {
+                "address": "0x6B513B40eBc0B4D7B197730476ed3324346F2822",
+                "deployedBlock": 186542023,
+                "chainId": 421614
             }
         }
     }
