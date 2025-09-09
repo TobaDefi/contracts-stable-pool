@@ -48,4 +48,8 @@ contract MockERC20 is ERC20 {
         emit TransferDEV(address(this), symbol());
         return super.transferFrom(sender, recipient, amount);
     }
+
+    function decimals() public view override returns (uint8) {
+        return 6;
+    }
 }
