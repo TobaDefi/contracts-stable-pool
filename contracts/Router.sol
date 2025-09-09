@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 // @todo revert support of permit2
 // import { IPermit2 } from "@uniswap/permit2/src/interfaces/IPermit2.sol";
@@ -33,18 +34,19 @@ contract Router is IRouter, RouterCommon, UniversalContract {
     using Address for address payable;
     using RouterWethLib for IWETH;
     using SafeCast for *;
+    using SafeERC20 for IERC20;
 
-    /// @notice The Gateway contract address for ZetaChain Testnet
-    IGatewayZEVM public constant GATEWAY = IGatewayZEVM(0x6c533f7fE93fAE114d0954697069Df33C9B74fD7);
+    /// @notice The Gateway contract address for ZetaChain
+    IGatewayZEVM public immutable GATEWAY;
 
-    /// @notice The Uniswap V2 Router contract address for ZetaChain Testnet
+    /// @notice The Uniswap V2 Router contract address for ZetaChain
     /// @dev This router is used to swap tokens in the Universal Token Sale.
-    address public constant UNISWAP_ROUTER = 0x2ca7d64A7EFE2D62A725E2B35Cf7230D6677FfEe;
+    address public immutable UNISWAP_ROUTER;
 
     /// @notice The gas limit for the onRevert function.
     uint256 public constant GAS_LIMIT = 5000000;
 
-    bool internal _initOnColl;
+    bool internal _initOnCall;
     bool internal _toExternalNetwork;
 
     /// @notice Error thrown when the caller is not the Gateway contract.
@@ -56,6 +58,12 @@ contract Router is IRouter, RouterCommon, UniversalContract {
     /// @notice Error thrown when the amount is insufficient to cover the gas fee for withdrawal to the external network.
     error InsufficientWithdrawGasFeeAmount();
 
+    /// @notice Error thrown when the pool is not registered in the vault.
+    error PoolNotRegistered(address pool);
+
+    /// @notice Error thrown when the token is not part of the pool.
+    error TokenNotInPool(address token, address pool);
+
     error VaultNotRegisteredNetwork(address pool, uint256 chainId);
 
     /// @notice Error thrown when tokenIndex is out of bounds for pool tokens.
@@ -63,6 +71,12 @@ contract Router is IRouter, RouterCommon, UniversalContract {
 
     /// @notice Error thrown when trying to add a token with zero amount.
     error ZeroTokenAmount();
+
+    /// @notice Emitted when cross-chain liquidity is added to a pool.
+    event CrossChainLiquidityAdded(address indexed sender, address indexed pool, address indexed token, uint256 amount);
+
+    /// @notice Emitted when tokens are withdrawn to external network.
+    event TokensWithdrawn(address indexed sender, address indexed targetToken, uint256 amount, bytes recipient);
 
     /// @notice Modifier that restricts access to the Gateway contract.
     modifier onlyGateway() {
@@ -73,6 +87,8 @@ contract Router is IRouter, RouterCommon, UniversalContract {
     constructor(
         IVault vault,
         IWETH weth,
+        IGatewayZEVM gateway,
+        address uniswapRouter,
         // @todo revert support of permit2
         // IPermit2 permit2,
         string memory routerVersion
@@ -81,18 +97,23 @@ contract Router is IRouter, RouterCommon, UniversalContract {
         // ) RouterCommon(vault, weth, permit2, routerVersion) {
         RouterCommon(vault, weth, routerVersion)
     {
-        // solhint-disable-previous-line no-empty-blocks
+        GATEWAY = gateway;
+        UNISWAP_ROUTER = uniswapRouter;
     }
 
     /*******************************************************************************
                                 Gateway Functions
     *******************************************************************************/
 
-    struct Message {
-        address pool;
-        uint256 minBptAmountOut;
-    }
-
+    /**
+     * @notice Entry point for cross-chain liquidity operations from ZetaChain Gateway.
+     * @dev This function is called by the Gateway when tokens are sent from external chains.
+     * It validates the pool and token, then adds liquidity to the specified pool.
+     * @param context Message context containing sender information from the external chain
+     * @param zrc20 The ZRC20 token address that was sent
+     * @param amount Amount of tokens sent
+     * @param message Encoded Message struct containing pool and minimum BPT amount
+     */
     function onCall(
         MessageContext calldata context,
         address zrc20,
@@ -101,19 +122,34 @@ contract Router is IRouter, RouterCommon, UniversalContract {
     ) external override saveSender(msg.sender) onlyGateway {
         Message memory _msg = abi.decode(message, (Message));
 
+        // Validate that the pool is registered in the vault
+        if (!_vault.isPoolRegistered(_msg.pool)) {
+            revert PoolNotRegistered(_msg.pool);
+        }
+
+        // Get pool tokens and validate that the zrc20 token is whitelisted
         IERC20[] memory tokens = _vault.getPoolTokens(_msg.pool);
+        bool tokenFound = false;
+        uint256 tokenIndex;
 
         uint256[] memory exactAmountsIn = new uint256[](tokens.length);
 
         for (uint256 i = 0; i < tokens.length; ++i) {
             if (address(tokens[i]) == zrc20) {
                 exactAmountsIn[i] = amount;
+                tokenFound = true;
+                tokenIndex = i;
             } else {
                 exactAmountsIn[i] = 0;
             }
         }
 
-        _initOnColl = true;
+        // Ensure the ZRC20 token is a valid pool token
+        if (!tokenFound) {
+            revert TokenNotInPool(zrc20, _msg.pool);
+        }
+
+        _initOnCall = true;
 
         _vault.unlock(
             abi.encodeCall(
@@ -130,7 +166,11 @@ contract Router is IRouter, RouterCommon, UniversalContract {
                 })
             )
         );
-        _initOnColl = false;
+
+        _initOnCall = false;
+
+        // Emit event for successful cross-chain liquidity addition
+        emit CrossChainLiquidityAdded(context.senderEVM, _msg.pool, zrc20, amount);
     }
 
     /**
@@ -174,14 +214,72 @@ contract Router is IRouter, RouterCommon, UniversalContract {
                 onRevertGasLimit: GAS_LIMIT
             })
         );
+
+        // Emit event for successful withdrawal
+        emit TokensWithdrawn(sender, targetToken, out, abi.encodePacked(sender));
     }
 
+    /**
+     * @notice Handle revert operations when cross-chain transactions fail.
+     * @dev This function is called by the Gateway when a cross-chain transaction is reverted.
+     * @param context Revert context containing information about the failed transaction
+     */
     function onRevert(RevertContext calldata context) external onlyGateway {
-        // @todo implement revert logic
+        // Decode the original message to understand what failed
+        try this.decodeRevertMessage(context.revertMessage) returns (
+            address originalSender,
+            address targetToken,
+            uint256 amount
+        ) {
+            // Return the tokens to the original sender on ZetaChain
+            // This assumes the tokens are already on ZetaChain and need to be transferred back
+            IERC20(targetToken).safeTransfer(originalSender, amount);
+
+            // Emit event for revert handling
+            emit TokensWithdrawn(originalSender, targetToken, amount, abi.encodePacked(originalSender));
+        } catch {
+            // If decoding fails, log the error but don't revert
+            // The funds might be stuck, but we don't want to brick the contract
+        }
     }
 
+    /**
+     * @notice Handle abort operations when cross-chain transactions are aborted.
+     * @dev This function is called by the Gateway when a cross-chain transaction is aborted.
+     * @param context Revert context containing information about the aborted transaction
+     */
     function onAbort(RevertContext calldata context) external onlyGateway {
-        // @todo implement abort logic
+        // Similar to onRevert, but for aborted transactions
+        // The main difference is that abort might happen before any state changes
+        try this.decodeRevertMessage(context.revertMessage) returns (
+            address originalSender,
+            address targetToken,
+            uint256 amount
+        ) {
+            // Return the tokens to the original sender
+            IERC20(targetToken).safeTransfer(originalSender, amount);
+
+            // Emit event for abort handling
+            emit TokensWithdrawn(originalSender, targetToken, amount, abi.encodePacked(originalSender));
+        } catch {
+            // If decoding fails, log the error but don't revert
+        }
+    }
+
+    /**
+     * @notice Decode revert message to extract transaction details.
+     * @dev Helper function to decode revert messages for recovery operations.
+     * @param revertMessage Encoded message containing transaction details
+     * @return originalSender The original sender of the transaction
+     * @return targetToken The token that was being processed
+     * @return amount The amount of tokens involved
+     */
+    function decodeRevertMessage(
+        bytes calldata revertMessage
+    ) external pure returns (address originalSender, address targetToken, uint256 amount) {
+        if (revertMessage.length > 0) {
+            (originalSender, targetToken, amount) = abi.decode(revertMessage, (address, address, uint256));
+        }
     }
 
     /**
@@ -203,8 +301,6 @@ contract Router is IRouter, RouterCommon, UniversalContract {
             // NOTE: If the target token is not the gas ZRC20, we need to swap.
             address wZeta = IUniswapV2Router02(UNISWAP_ROUTER).WETH();
             address[] memory path = new address[](3);
-
-            path = new address[](3);
             path[0] = targetToken;
             path[1] = wZeta;
             path[2] = gasZRC20;
@@ -295,7 +391,7 @@ contract Router is IRouter, RouterCommon, UniversalContract {
                 // necessary. Done out of an abundance of caution.
                 // @todo revert support of permit2
                 // _permit2.transferFrom(params.sender, address(_vault), amountIn.toUint160(), address(token));
-                IERC20(token).transferFrom(params.sender, address(_vault), amountIn.toUint160());
+                token.safeTransferFrom(params.sender, address(_vault), amountIn.toUint160());
                 _vault.settle(token, amountIn);
             }
         }
@@ -348,7 +444,7 @@ contract Router is IRouter, RouterCommon, UniversalContract {
         /// @notice Revert if tokenIndex is out of bounds for pool tokens
         if (tokenIndex > tokens.length - 1) revert InvalidTokenIndex(tokenIndex, tokens.length);
 
-        IERC20(tokens[tokenIndex]).transferFrom(params.sender, address(_vault), params.exactAmountIn.toUint160());
+        IERC20(tokens[tokenIndex]).safeTransferFrom(params.sender, address(_vault), params.exactAmountIn.toUint160());
         _vault.settle(tokens[tokenIndex], params.exactAmountIn);
     }
 
@@ -548,10 +644,10 @@ contract Router is IRouter, RouterCommon, UniversalContract {
                 // necessary. Done out of an abundance of caution.
                 // @todo revert support of permit2
                 // _permit2.transferFrom(params.sender, address(_vault), amountIn.toUint160(), address(token));
-                if (_initOnColl) {
-                    IERC20(token).transfer(address(_vault), amountIn.toUint160());
+                if (_initOnCall) {
+                    token.safeTransfer(address(_vault), amountIn.toUint160());
                 } else {
-                    IERC20(token).transferFrom(params.sender, address(_vault), amountIn.toUint160());
+                    token.safeTransferFrom(params.sender, address(_vault), amountIn.toUint160());
                 }
                 _vault.settle(token, amountIn);
             }
