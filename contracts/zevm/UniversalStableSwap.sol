@@ -12,17 +12,17 @@ import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IZRC20.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
-import {IUniversalStableCoordinator, StableSwapParams} from "./interfaces/IUniversalStableCoordinator.sol";
+import {IUniversalStableSwap, StableSwapParams} from "./interfaces/IUniversalStableSwap.sol";
 
-/// @title UniversalStableCoordinator
+/// @title UniversalStableSwap
 /// @notice Helper contract that handles cross-chain stable swaps along with cross-chain liquidity provision.
-contract UniversalStableCoordinator is 
+contract UniversalStableSwap is 
     Initializable,
     AccessControlUpgradeable,
     UUPSUpgradeable,
     PausableUpgradeable,
     ReentrancyGuardUpgradeable,
-    IUniversalStableCoordinator,
+    IUniversalStableSwap,
     UniversalContract 
 {
     /// Represents the instance of the GatewayZEVM contract deployed on ZetaChain.
@@ -48,7 +48,7 @@ contract UniversalStableCoordinator is
         _disableInitializers();
     }
 
-    /// @notice Initialize the UniversalStableCoordinator contract with required addresses and admin role.
+    /// @notice Initialize the UniversalStableSwap contract with required addresses and admin role.
     /// @param _gateway The ZetaChain Gateway contract address for cross-chain operations.
     /// @param _uniswapRouter The Uniswap router address for token swaps.
     /// @param _router The internal router contract address for stable pool operations.
