@@ -15,7 +15,7 @@ import {IRouter} from "../interfaces/IRouter.sol";
 import {IUniversalStableSwap, StableSwapParams} from "./interfaces/IUniversalStableSwap.sol";
 
 /// @title UniversalStableSwap
-/// @notice Helper contract that handles cross-chain stable swaps along with cross-chain liquidity provision.
+/// @notice Helper contract that handles cross-chain stable swaps.
 contract UniversalStableSwap is 
     Initializable,
     AccessControlUpgradeable,
