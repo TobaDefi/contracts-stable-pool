@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std-1.10.0/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IGatewayZEVM} from "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
 import {IWETH} from "../../contracts/interfaces/IWETH.sol";
 import {Vault} from "../../contracts/Vault.sol";
 import {VaultExtension} from "../../contracts/VaultExtension.sol";
@@ -17,6 +18,7 @@ import {IVaultExtension} from "../../contracts/interfaces/IVaultExtension.sol";
 import {IStablePool} from "../../contracts/interfaces/IStablePool.sol";
 import {IRateProvider} from "../../contracts/interfaces/IRateProvider.sol";
 import {IAuthorizer} from "../../contracts/interfaces/IAuthorizer.sol";
+import {IVaultErrors} from "../../contracts/interfaces/IVaultErrors.sol";
 import {IProtocolFeeController} from "../../contracts/interfaces/IProtocolFeeController.sol";
 import {TokenConfig, PoolRoleAccounts, LiquidityManagement, TokenType} from "../../contracts/common/VaultTypes.sol";
 import {MockERC20} from "../../contracts/mocks/MockERC20.sol";
@@ -31,7 +33,10 @@ abstract contract BaseTest is Test {
     ProtocolFeeController public protocolFeeController;
     StablePool public stablePool;
     StablePoolFactory public stablePoolFactory;
-    
+
+    IGatewayZEVM public GATEWAY = IGatewayZEVM(address(0x99));
+    address public UNISWAP_ROUTER = address(0x88);
+
     // Test tokens.
     MockERC20 public usdc;
     MockERC20 public usdt;
@@ -53,6 +58,7 @@ abstract contract BaseTest is Test {
     uint256 public constant SWAP_FEE_PERCENTAGE = 1000000000000; 
     uint256 public constant MIN_BPT_AMOUNT_OUT = 5e18; 
     uint256 public constant INITIAL_LIQUIDITY = 100e6;
+    uint256 public constant AMOUNT_IN = 100e6;
     uint256 public constant INITIAL_USER_BALANCE = 10000e6; 
     
     uint256 public CHAIN_ID;
@@ -119,6 +125,8 @@ abstract contract BaseTest is Test {
         router = new Router(
             IVault(address(vault)),
             IWETH(ZERO_ADDRESS),
+            GATEWAY,
+            UNISWAP_ROUTER,
             "1.0.0" 
         );
 
@@ -214,7 +222,7 @@ abstract contract BaseTest is Test {
 
         assertTrue(bptOut > 0, "BPT amount should be greater than 0");
     }
-    
+
     function _setupUserBalances() internal {
         // Transfer tokens to users.
         usdc.transfer(user1, INITIAL_USER_BALANCE);
