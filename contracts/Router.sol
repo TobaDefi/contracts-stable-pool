@@ -72,12 +72,6 @@ contract Router is IRouter, RouterCommon, UniversalContract {
     /// @notice Error thrown when trying to add a token with zero amount.
     error ZeroTokenAmount();
 
-    /// @notice Emitted when cross-chain liquidity is added to a pool.
-    event CrossChainLiquidityAdded(address indexed sender, address indexed pool, address indexed token, uint256 amount);
-
-    /// @notice Emitted when tokens are withdrawn to external network.
-    event TokensWithdrawn(address indexed sender, address indexed targetToken, uint256 amount, bytes recipient);
-
     /// @notice Modifier that restricts access to the Gateway contract.
     modifier onlyGateway() {
         if (msg.sender != address(GATEWAY)) revert NotGateway();

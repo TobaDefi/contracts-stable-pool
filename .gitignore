@@ -55,3 +55,12 @@ abi/*
 
 # External contracts types for tests
 test/helpers/types/
+
+# Foundry files
+out/
+cache_forge/
+broadcast/
+
+
+# Soldeer
+/dependencies
