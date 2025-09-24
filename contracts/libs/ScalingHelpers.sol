@@ -109,21 +109,9 @@ library ScalingHelpers {
         uint256 length = from.length;
         InputHelpers.ensureInputLengthMatch(length, to.length);
 
-        // @todo backport from cancun to london; revert what athens is on cancun
-        // assembly ("memory-safe") {
-        //     mcopy(add(to, 0x20), add(from, 0x20), mul(length, 0x20))
-        // }
-
         // solhint-disable-next-line no-inline-assembly
-        assembly {
-            let src := add(from, 0x20)
-            let dst := add(to, 0x20)
-            let end := add(src, mul(length, 0x20))
-            for {} lt(src, end) {} {
-                mstore(dst, mload(src))
-                src := add(src, 0x20)
-                dst := add(dst, 0x20)
-            }
+        assembly ("memory-safe") {
+            mcopy(add(to, 0x20), add(from, 0x20), mul(length, 0x20))
         }
     }
 
