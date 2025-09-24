@@ -1,0 +1,21 @@
+[profile.default]
+src = "contracts"
+out = "out"
+libs = ["lib", "node_modules", "dependencies"]
+test = "test"
+script = "script"
+broadcast = "broadcast"
+cache_path = "cache_forge"
+out_path = "out"
+
+# Solidity compiler settings
+solc_version = "0.8.26"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+
+# EVM settings
+evm_version = "london"
+
+[dependencies]
+forge-std = "1.10.0"
