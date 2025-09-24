@@ -682,19 +682,15 @@ contract Router is IRouter, RouterCommon, UniversalContract {
         );
     }
 
-    function removeLiquiditySingleTokenExactIn(
+    /// @inheritdoc IRouter
+    function removeLiquiditySingleTokenExactInCrossChain(
         address pool,
         uint256 exactBptAmountIn,
-        uint256 chainId,
+        IERC20 tokenOut,
         uint256 minAmountOut,
         bool wethIsEth,
         bytes memory userData
     ) external saveSender(msg.sender) returns (uint256 amountOut) {
-        IERC20 tokenOut = _vault.getPoolTokenByChainId(pool, chainId);
-        if (address(tokenOut) == address(0)) {
-            revert VaultNotRegisteredNetwork(pool, chainId);
-        }
-
         (uint256[] memory minAmountsOut, uint256 tokenIndex) = _getSingleInputArrayAndTokenIndex(
             pool,
             tokenOut,

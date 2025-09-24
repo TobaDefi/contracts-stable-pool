@@ -24,7 +24,7 @@ interface IRouter {
     }
 
     /***************************************************************************
-                                      Events  
+                                      Events
     ***************************************************************************/
 
     /**
@@ -237,6 +237,25 @@ interface IRouter {
         bool wethIsEth,
         bytes memory userData
     ) external payable returns (uint256 amountOut);
+
+    /**
+     * @notice Removes liquidity from a pool via a single token for cross-chain operations, burning an exact pool token amount.
+     * @param pool Address of the liquidity pool
+     * @param exactBptAmountIn Exact amount of pool tokens provided
+     * @param tokenOut ZRC20 address of the token that user wants to receive on the destination chain
+     * @param minAmountOut Minimum amount of tokens to be received
+     * @param wethIsEth If true, incoming ETH will be wrapped to WETH and outgoing WETH will be unwrapped to ETH
+     * @param userData Additional (optional) data sent with the request to remove liquidity
+     * @return amountOut Actual amount of tokens received
+     */
+    function removeLiquiditySingleTokenExactInCrossChain(
+        address pool,
+        uint256 exactBptAmountIn,
+        IERC20 tokenOut,
+        uint256 minAmountOut,
+        bool wethIsEth,
+        bytes memory userData
+    ) external saveSender returns (uint256 amountOut);
 
     /**
      * @notice Removes liquidity from a pool via a single token, specifying the exact amount of tokens to receive.
