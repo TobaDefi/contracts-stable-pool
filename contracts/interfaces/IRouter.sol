@@ -255,7 +255,7 @@ interface IRouter {
         uint256 minAmountOut,
         bool wethIsEth,
         bytes memory userData
-    ) external saveSender returns (uint256 amountOut);
+    ) external returns (uint256 amountOut);
 
     /**
      * @notice Removes liquidity from a pool via a single token, specifying the exact amount of tokens to receive.
