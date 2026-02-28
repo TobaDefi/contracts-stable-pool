@@ -1,36 +1,41 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/UniversalContract.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IZRC20.sol";
-import {IRouter} from "../interfaces/IRouter.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
+import {IUniversalStableSwap, StableSwapParams} from "./interfaces/IUniversalStableSwap.sol";
 
-contract UniversalStableSwap is UniversalContract, Ownable {
+/// @title UniversalStableSwap
+/// @notice Helper contract that handles cross-chain stable swaps.
+contract UniversalStableSwap is 
+    Initializable,
+    AccessControlUpgradeable,
+    UUPSUpgradeable,
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    IUniversalStableSwap,
+    UniversalContract 
+{
     /// Represents the instance of the GatewayZEVM contract deployed on ZetaChain.
-    IGatewayZEVM public immutable gateway;
+    IGatewayZEVM public gateway;
     /// Represents the instance of the UniswapRouter contract deployed on ZetaChain.
-    address public immutable uniswapRouter;
+    address public uniswapRouter;
     /// Represents the instance of the Router contract deployed on ZetaChain.
-    IRouter public immutable router;
+    IRouter public router;
     /// Represents the instance of the StablePoolKRW contract deployed on ZetaChain.
-    address public immutable stablePool;
+    address public stablePool;
+
     /// Stores if token is whitelisted.
     mapping(address => bool) public isTokenWhitelisted;
-
-    /// Structs
-    struct CallParams {
-        bytes receiver;
-        address targetToken;
-    }
-
-    /// Errors
-    error InvalidAddress();
-    error Unauthorized();
-    error ApproveFailed();
 
     /// Modifiers
     modifier onlyGateway() {
@@ -38,25 +43,53 @@ contract UniversalStableSwap is UniversalContract, Ownable {
         _;
     }
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initialize the UniversalStableSwap contract with required addresses and admin role.
+    /// @param _gateway The ZetaChain Gateway contract address for cross-chain operations.
+    /// @param _uniswapRouter The Uniswap router address for token swaps.
+    /// @param _router The internal router contract address for stable pool operations.
+    /// @param _stablePool The stable pool contract address for stable token swaps.
+    /// @param _admin The admin address that will have DEFAULT_ADMIN_ROLE for contract management.
+    function initialize(
         address payable _gateway,
         address _uniswapRouter,
         address _router,
-        address _stablePool
-    ) Ownable(msg.sender) {
-        if (_gateway == address(0) || _uniswapRouter == address(0) || _router == address(0) || _stablePool == address(0)) revert InvalidAddress();
-        // Set the immutables.
+        address _stablePool,
+        address _admin
+    ) public initializer {
+        // Check the addresses.
+        if (_gateway == address(0) || _uniswapRouter == address(0) || _router == address(0) || _stablePool == address(0) || _admin == address(0)) revert InvalidAddress();
+        
+        // Init Openzeppelin contracts.
+        __UUPSUpgradeable_init();
+        __ReentrancyGuard_init_unchained();
+        __AccessControl_init_unchained();
+        __Pausable_init_unchained();
+
+        // Grant roles.
+        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
+
+        // Set the storage variables.
         gateway = IGatewayZEVM(_gateway);
         uniswapRouter = _uniswapRouter;
         router = IRouter(_router);
         stablePool = _stablePool;
     }
 
+    /// @dev Authorizes the upgrade of the contract, sender must be owner.
+    /// @param newImplementation Address of the new implementation.
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) { }
+
     /// @notice Should whitelist the ZRC20 token address.
     /// @dev Callable only by owner.
-    function whitelist(address token) external onlyOwner {
+    function whitelist(address token) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (token == address(0)) revert InvalidAddress();
         isTokenWhitelisted[token] = true;
+        emit ZRC20TokenWhitelisted(token);
     }
 
     /// @notice Should handle cross-chain stables transfer.
@@ -68,7 +101,7 @@ contract UniversalStableSwap is UniversalContract, Ownable {
         bytes calldata message 
     ) external override onlyGateway {
         // Decode message to get the target token and receiver addresses.
-        CallParams memory callParams = _decode(message);
+        StableSwapParams memory callParams = _decode(message);
         address targetToken = callParams.targetToken;
         
         // Check if tokens are whitelisted.
@@ -121,7 +154,7 @@ contract UniversalStableSwap is UniversalContract, Ownable {
 
     function _decode(
         bytes calldata message
-    ) private pure returns (CallParams memory resp) {
+    ) private pure returns (StableSwapParams memory resp) {
         (resp.receiver, resp.targetToken) = abi.decode(message, (bytes, address));
     }
 }
