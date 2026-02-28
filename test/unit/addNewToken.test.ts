@@ -197,6 +197,8 @@ async function preSetupTestEnvironment() {
     const routerContract: Router = await routerFactory.deploy(
         vaultContract.address,
         AddressZero, // WETH address
+        AddressZero, // Gateway address (mock)
+        AddressZero, // Uniswap Router address (mock)
         "{\"name\":\"Router\"\"version\":2\"deployment\":\"2025-v3-router-v2\"}"
     );
     await routerContract.deployed();
